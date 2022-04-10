@@ -1,25 +1,36 @@
-import { initializeApp } from 'firebase/app';
-import { 
-    getAuth, 
-    signInWithRedirect, 
+import {
+    initializeApp
+} from 'firebase/app';
+import {
+    getAuth,
+    signInWithRedirect,
     signInWithPopup,
-    signInWithEmailAndPassword, 
+    signInWithEmailAndPassword,
     GoogleAuthProvider,
     createUserWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
- } from 'firebase/auth';
-import {getFirestore, doc, getDoc, setDoc} from 'firebase/firestore';
+    onAuthStateChanged,
+} from 'firebase/auth';
+import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    collection,
+    writeBatch,
+    query,
+    getDocs
+} from 'firebase/firestore';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBYMpZZAOmr4ZxfBIu9RDAZR9MWIvGGt4U",  
-    authDomain: "all-black-thing.firebaseapp.com",  
-    projectId: "all-black-thing",  
-    storageBucket: "all-black-thing.appspot.com",  
-    messagingSenderId: "1055177085479",  
-    appId: "1:1055177085479:web:e0ae1b2c0c7ed7814a3402"  
+    apiKey: "AIzaSyBYMpZZAOmr4ZxfBIu9RDAZR9MWIvGGt4U",
+    authDomain: "all-black-thing.firebaseapp.com",
+    projectId: "all-black-thing",
+    storageBucket: "all-black-thing.appspot.com",
+    messagingSenderId: "1055177085479",
+    appId: "1:1055177085479:web:e0ae1b2c0c7ed7814a3402"
 };
-  
+
 const firebaseApp = initializeApp(firebaseConfig);
 
 const provider = new GoogleAuthProvider();
@@ -34,8 +45,35 @@ export const signInWithGoogleRedirect = () => signInWithRedirect(auth, provider)
 
 export const db = getFirestore();
 
-export const createUserDocumentFromAuth = async (userAuth,additionalInfo = {}) => {
-    if(!userAuth) return;
+export const addCollectionAndDocuments = async(collectionKey, objectsToAdd) => {
+    const collectionRef = collection(db, collectionKey);
+    const batch = writeBatch(db);
+    objectsToAdd.forEach((object) => {
+        const docRef = doc(collectionRef, object.title.toLowerCase())
+        batch.set(docRef , object)
+    })
+
+    await batch.commit()
+    console.log("Done!")
+}
+
+export const getCategoriesAndDocuments = async () => {
+    const collectionRef = collection(db, 'categories');
+    const q = query(collectionRef)
+
+    const querySnapshot = await getDocs(q)
+    const categoryMap = querySnapshot.docs.reduce((acc, docSnapshot) => {
+        const {title, items} = docSnapshot.data()
+        acc[title.toLowerCase()] = items
+        return acc;
+    }, {})
+
+    return categoryMap;
+
+}
+
+export const createUserDocumentFromAuth = async (userAuth, additionalInfo = {}) => {
+    if (!userAuth) return;
 
     const userDocRef = doc(db, 'users', userAuth.uid);
 
@@ -45,17 +83,20 @@ export const createUserDocumentFromAuth = async (userAuth,additionalInfo = {}) =
     console.log(userSnapshot.exists());
 
     if (!userSnapshot.exists()) {
-        const { displayName, email } = userAuth;
+        const {
+            displayName,
+            email
+        } = userAuth;
         const createdAt = new Date();
 
-        try{
+        try {
             await setDoc(userDocRef, {
                 displayName,
                 email,
                 createdAt,
                 ...additionalInfo
             })
-        }catch(error){
+        } catch (error) {
             console.log("Error creating user document", error.message);
         }
     }
@@ -64,14 +105,14 @@ export const createUserDocumentFromAuth = async (userAuth,additionalInfo = {}) =
 }
 
 export const createAuthUserWithEmailAndPassword = async (email, password) => {
-    if(!email || !password) return; 
+    if (!email || !password) return;
 
     return await createUserWithEmailAndPassword(auth, email, password)
 }
 
 
 export const signAuthUserWithEmailAndPassword = async (email, password) => {
-    if(!email || !password) return;
+    if (!email || !password) return;
 
     return await signInWithEmailAndPassword(auth, email, password)
 }
